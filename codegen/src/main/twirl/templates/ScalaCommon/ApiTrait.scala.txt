@@ -1,5 +1,5 @@
 @*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  *@
 
 @(service: akka.grpc.gen.scaladsl.Service)
@@ -17,8 +17,11 @@ trait @{service.name} {
   }
 }
 
-object @{service.name} {
+object @{service.name} extends akka.grpc.ServiceDescription {
   val name = "@service.grpcName"
+
+  val descriptor: com.google.protobuf.Descriptors.FileDescriptor =
+    @service.descriptor;
 
   object Serializers {
     import akka.grpc.scaladsl.ScalapbProtobufSerializer

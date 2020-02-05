@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package example.myapp.helloworld
@@ -15,12 +15,14 @@ import example.myapp.helloworld.grpc.{ GreeterService, GreeterServiceHandlerFact
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ErrorReportingSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
+class ErrorReportingSpec extends AnyWordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   implicit val sys = ActorSystem()
   override implicit val patienceConfig = PatienceConfig(5.seconds, Span(100, org.scalatest.time.Millis))
 
@@ -52,14 +54,14 @@ class ErrorReportingSpec extends WordSpec with Matchers with ScalaFutures with B
       allHeaders(response) should contain(RawHeader("grpc-status", Status.Code.UNIMPLEMENTED.value().toString))
     }
 
-    "respond with an 'internal' gRPC error status when calling an method without a request body" in {
+    "respond with an 'invalid argument' gRPC error status when calling an method without a request body" in {
       val request = HttpRequest(
         method = HttpMethods.POST,
         uri = s"http://localhost:${binding.localAddress.getPort}/${GreeterService.name}/SayHello")
       val response = Http().singleRequest(request).futureValue
 
       response.status should be(StatusCodes.OK)
-      allHeaders(response) should contain(RawHeader("grpc-status", Status.Code.INTERNAL.value().toString))
+      allHeaders(response) should contain(RawHeader("grpc-status", Status.Code.INVALID_ARGUMENT.value().toString))
     }
 
     def allHeaders(response: HttpResponse) =

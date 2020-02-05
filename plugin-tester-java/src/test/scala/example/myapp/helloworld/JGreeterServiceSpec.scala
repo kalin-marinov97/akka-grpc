@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package example.myapp.helloworld
 
 import scala.concurrent.Await
 
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import org.scalatest.BeforeAndAfterAll
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -18,8 +18,10 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 
 import example.myapp.helloworld.grpc._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
-class JGreeterServiceSpec extends Matchers with WordSpecLike with BeforeAndAfterAll with ScalaFutures {
+class JGreeterServiceSpec extends Matchers with AnyWordSpecLike with BeforeAndAfterAll with ScalaFutures {
   implicit val patience = PatienceConfig(5.seconds, Span(100, org.scalatest.time.Millis))
 
   implicit val serverSystem: ActorSystem = {

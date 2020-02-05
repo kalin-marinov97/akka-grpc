@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.grpc.maven
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ProtocSpec extends WordSpec with Matchers {
+class ProtocSpec extends AnyWordSpec with Matchers {
   "The protoc error messages" must {
     "be parsed into details" in {
       GenerateMojo.parseError("notifications.proto:12:1: Expected top-level statement (e.g. \"message\").") should

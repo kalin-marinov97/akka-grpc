@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.grpc.scaladsl
@@ -14,12 +14,17 @@ import akka.stream.ActorMaterializer
 import io.grpc.Status
 import scala.concurrent.{ ExecutionException, Future }
 
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest._
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{ Millis, Seconds, Span }
+import org.scalatest.wordspec.AnyWordSpec
 
-class GrpcExceptionHandlerSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
+class GrpcExceptionHandlerSpec extends AnyWordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   implicit val system = ActorSystem("Test")
   implicit val materializer = ActorMaterializer()
+  implicit override val patienceConfig =
+    PatienceConfig(timeout = scaled(Span(2, Seconds)), interval = scaled(Span(5, Millis)))
 
   val expected: Function[Throwable, Status] = {
     case e: ExecutionException =>
