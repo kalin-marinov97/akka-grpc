@@ -5,20 +5,20 @@
 package akka.grpc.internal
 
 import java.lang.reflect.Field
-import java.util.concurrent.{ ThreadLocalRandom, TimeUnit }
+import java.util.concurrent.TimeUnit
 
 import akka.Done
 import akka.annotation.InternalApi
 import akka.discovery.Lookup
 import akka.grpc.GrpcClientSettings
+import io.grpc.CallOptions
+import io.grpc.internal.DnsNameResolverProvider
 import io.grpc.netty.shaded.io.grpc.netty.{ GrpcSslContexts, NegotiationType, NettyChannelBuilder }
 import io.grpc.netty.shaded.io.netty.handler.ssl._
-import io.grpc.{ CallOptions, ManagedChannel }
 import javax.net.ssl.SSLContext
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ ExecutionContext, Future, Promise }
-
-import io.grpc.internal.DnsNameResolverProvider
 
 /**
  * Used to indicate that the service discovery returned no target.
@@ -38,44 +38,50 @@ object NettyClientUtils {
    * INTERNAL API
    */
   @InternalApi
-  def createChannel(settings: GrpcClientSettings)(implicit ec: ExecutionContext): Future[InternalChannel] =
+  def createChannel(settings: GrpcClientSettings)(
+      implicit ec: ExecutionContext): Future[List[Future[InternalChannel]]] = {
     settings.serviceDiscovery
       .lookup(Lookup(settings.serviceName, settings.servicePortName, settings.serviceProtocol), settings.resolveTimeout)
       .flatMap { targets =>
         if (targets.addresses.nonEmpty) {
-          val target = targets.addresses(ThreadLocalRandom.current().nextInt(targets.addresses.size))
-          var builder =
-            NettyChannelBuilder
-              .forAddress(target.host, target.port.getOrElse(settings.defaultPort))
-              .flowControlWindow(NettyChannelBuilder.DEFAULT_FLOW_CONTROL_WINDOW)
+          Future {
+            targets.addresses.toList.map { target =>
+              var builder =
+                NettyChannelBuilder
+                  .forAddress(target.host, target.port.getOrElse(settings.defaultPort))
+                  .flowControlWindow(NettyChannelBuilder.DEFAULT_FLOW_CONTROL_WINDOW)
 
-          if (!settings.useTls)
-            builder = builder.usePlaintext()
-          else {
-            builder = settings.sslContext
-              .map(javaCtx => builder.negotiationType(NegotiationType.TLS).sslContext(nettyHttp2SslContext(javaCtx)))
-              .getOrElse(builder.negotiationType(NegotiationType.PLAINTEXT))
+              if (!settings.useTls)
+                builder = builder.usePlaintext()
+              else {
+                builder = settings.sslContext
+                  .map(javaCtx =>
+                    builder.negotiationType(NegotiationType.TLS).sslContext(nettyHttp2SslContext(javaCtx)))
+                  .getOrElse(builder.negotiationType(NegotiationType.PLAINTEXT))
+              }
+
+              builder = settings.grpcLoadBalancingType
+                .map(builder.defaultLoadBalancingPolicy(_))
+                .map(_.nameResolverFactory(new DnsNameResolverProvider()))
+                .getOrElse(builder)
+              builder = settings.overrideAuthority.map(builder.overrideAuthority(_)).getOrElse(builder)
+              builder = settings.userAgent.map(builder.userAgent(_)).getOrElse(builder)
+              builder = settings.channelBuilderOverrides(builder)
+
+              val channel = builder.build()
+
+              val promise = Promise[Done]()
+              ChannelUtils.monitorChannel(promise, channel, settings.connectionAttempts)
+
+              Future.successful(InternalChannel(channel, promise.future))
+            }
           }
-
-          builder = settings.grpcLoadBalancingType
-            .map(builder.defaultLoadBalancingPolicy(_))
-            .map(_.nameResolverFactory(new DnsNameResolverProvider()))
-            .getOrElse(builder)
-          builder = settings.overrideAuthority.map(builder.overrideAuthority(_)).getOrElse(builder)
-          builder = settings.userAgent.map(builder.userAgent(_)).getOrElse(builder)
-          builder = settings.channelBuilderOverrides(builder)
-
-          val channel = builder.build()
-
-          val promise = Promise[Done]()
-          ChannelUtils.monitorChannel(promise, channel, settings.connectionAttempts)
-
-          Future.successful(InternalChannel(channel, promise.future))
         } else {
           val failure = new NoTargetException("No targets returned for name: " + settings.serviceName)
-          Future.failed(failure)
+          Future.failed[List[Future[InternalChannel]]](failure)
         }
       }
+  }
 
   /**
    * INTERNAL API

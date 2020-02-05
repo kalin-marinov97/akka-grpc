@@ -23,6 +23,7 @@ object Dependencies {
   }
 
   object Compile {
+    val cats = "org.typelevel" %% "cats-core" % "2.0.0"
     val akkaStream = "com.typesafe.akka" %% "akka-stream" % Versions.akka
     val akkaHttp = "com.typesafe.akka" %% "akka-http" % Versions.akkaHttp
     val akkaHttpCore = "com.typesafe.akka" %% "akka-http-core" % Versions.akkaHttp
@@ -90,6 +91,7 @@ object Dependencies {
         Compile.akkaHttp,
         Compile.akkaHttp2Support,
         Compile.akkaDiscovery,
+        Compile.cats,
         Test.akkaDiscoveryConfig,
         Test.akkaTestkit) ++ testing
 

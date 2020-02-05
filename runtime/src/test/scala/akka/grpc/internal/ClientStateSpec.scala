@@ -29,11 +29,11 @@ class ClientStateSpec extends AsyncWordSpec with Matchers with ScalaFutures with
   private val mockSettings: GrpcClientSettings = GrpcClientSettings.connectToServiceAt("somehost.com", 3434)
 
   private def clientState(channelCompletion: Promise[Done] = Promise[Done]()) = {
-    val channelFactory: GrpcClientSettings => Future[InternalChannel] = { _ =>
+    val channelFactory: GrpcClientSettings => Future[List[Future[InternalChannel]]] = { _ =>
       Future.successful(
-        new InternalChannel(
+        List(Future.successful(InternalChannel(
           new ChannelUtilsSpec.FakeChannel(Stream(IDLE, CONNECTING, READY)),
-          channelCompletion.future))
+          channelCompletion.future))))
     }
     new ClientState(mockSettings, sys.log, channelFactory)
   }
@@ -72,8 +72,8 @@ class ClientStateSpec extends AsyncWordSpec with Matchers with ScalaFutures with
     "successfully provide a channel after initial creation failure" in {
       var channel: Future[ManagedChannel] = Future.failed(new IllegalStateException("No targets returned for name"))
       val channelCompletion = Promise[Done]()
-      val channelFactory: GrpcClientSettings => Future[InternalChannel] = { _ =>
-        channel.map(InternalChannel(_, channelCompletion.future))
+      val channelFactory: GrpcClientSettings => Future[List[Future[InternalChannel]]] = { _ =>
+        channel.map(r => List(Future.successful(InternalChannel(r, channelCompletion.future))))
       }
 
       val state = new ClientState(mockSettings, sys.log, channelFactory)
@@ -113,12 +113,12 @@ class ClientStateSpec extends AsyncWordSpec with Matchers with ScalaFutures with
 
       var firstSent = false
 
-      val channelFactory: GrpcClientSettings => Future[InternalChannel] = { _ =>
+      val channelFactory: GrpcClientSettings => Future[List[Future[InternalChannel]]] = { _ =>
         if (firstSent)
-          Future.successful(secondChannel)
+          Future.successful(List(Future.successful(secondChannel)))
         else {
           firstSent = true
-          Future.successful(firstChannel)
+          Future.successful(List(Future.successful(firstChannel)))
         }
       }
 
@@ -137,9 +137,9 @@ class ClientStateSpec extends AsyncWordSpec with Matchers with ScalaFutures with
         val creation = actualCreations
         actualCreations += 1
         Future.successful {
-          InternalChannel(
+          List(Future.successful(InternalChannel(
             new ChannelUtilsSpec.FakeChannel(Stream(IDLE, CONNECTING, READY)),
-            Future.failed(new RuntimeException(s"Failure $creation")))
+            Future.failed(new RuntimeException(s"Failure $creation")))))
         }
       }
 
